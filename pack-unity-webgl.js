@@ -1,70 +1,60 @@
 const fs = require('fs');
 const path = require('path');
 
-const buildDir = 'Build';
 const outputDir = 'dist';
 const outputFile = path.join(outputDir, 'index.html');
 
-// Ensure output directory exists
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir);
-}
+if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
-// Read original index.html
 let html = fs.readFileSync('index.html', 'utf8');
 
-// --- 1️⃣ Normalize Unity's `.concat()` paths into plain strings ---
+// Normalize Unity's ".concat()" paths
 html = html.replace(/"Build\/"\.concat\("(.+?)"\)/g, '"Build/$1"');
 
-// --- 2️⃣ Inline JavaScript files ---
-html = html.replace(/<script src="(.+?)"><\/script>/g, (_, src) => {
-  try {
-    const filePath = path.join(src);
-    const content = fs.readFileSync(filePath, 'utf8');
-    return `<script>\n${content}\n</script>`;
-  } catch (err) {
-    console.warn(`⚠️ Could not inline JS file: ${src}`);
-    return `<script src="${src}"></script>`;
-  }
-});
-
-// --- 3️⃣ Inline CSS files ---
+// Inline CSS
 html = html.replace(/<link rel="stylesheet" href="(.+?)">/g, (_, href) => {
   try {
-    const filePath = path.join(href);
-    const content = fs.readFileSync(filePath, 'utf8');
-    return `<style>\n${content}\n</style>`;
-  } catch (err) {
-    console.warn(`⚠️ Could not inline CSS file: ${href}`);
-    return `<link rel="stylesheet" href="${href}">`;
+    const css = fs.readFileSync(href, 'utf8');
+    return `<style>\n${css}\n</style>`;
+  } catch {
+    console.warn(`⚠️ Missing CSS: ${href}`);
+    return _;
   }
 });
 
-// --- 4️⃣ Inline binary assets (.wasm, .data) as base64 ---
-const embedBinary = (filename) => {
+// Inline JS (including loader)
+html = html.replace(/<script src="(.+?)"><\/script>/g, (_, src) => {
   try {
-    const filePath = path.join(filename);
-    const ext = path.extname(filename).slice(1);
-    const mime =
-      ext === 'wasm'
-        ? 'application/wasm'
-        : ext === 'data'
-        ? 'application/octet-stream'
-        : 'application/octet-stream';
-    const data = fs.readFileSync(filePath);
-    const base64 = data.toString('base64');
-    return `data:${mime};base64,${base64}`;
-  } catch (err) {
-    console.warn(`⚠️ Could not embed binary file: ${filename}`);
-    return filename; // leave original path if missing
-  }
-};
+    let js = fs.readFileSync(src, 'utf8');
 
-// --- 5️⃣ Replace asset URLs with base64 data URIs ---
-html = html.replace(/"(Build\/.+?\.(wasm|data))"/g, (_, file) => {
-  return `"${embedBinary(file)}"`;
+    // Patch loader fetch calls to use embedded data
+    js = js.replace(/fetch\((["'])(Build\/.+?\.wasm)\1\)/g, (m, q, file) => {
+      return `Promise.resolve(new Response(Uint8Array.from(atob("${embedBinary(file).split(',')[1]}"), c => c.charCodeAt(0))))`;
+    });
+
+    js = js.replace(/fetch\((["'])(Build\/.+?\.data)\1\)/g, (m, q, file) => {
+      return `Promise.resolve(new Response(Uint8Array.from(atob("${embedBinary(file).split(',')[1]}"), c => c.charCodeAt(0))))`;
+    });
+
+    return `<script>\n${js}\n</script>`;
+  } catch {
+    console.warn(`⚠️ Missing JS: ${src}`);
+    return _;
+  }
 });
 
-// --- 6️⃣ Write bundled HTML ---
+// Embed binary files
+function embedBinary(filename) {
+  try {
+    const data = fs.readFileSync(filename);
+    const ext = path.extname(filename).slice(1);
+    const mime = ext === 'wasm' ? 'application/wasm' : 'application/octet-stream';
+    return `data:${mime};base64,${data.toString('base64')}`;
+  } catch {
+    console.warn(`⚠️ Missing binary: ${filename}`);
+    return filename;
+  }
+}
+
 fs.writeFileSync(outputFile, html);
 console.log(`✅ Bundled HTML written to ${outputFile}`);
