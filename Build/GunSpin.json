@@ -1,0 +1,14 @@
+{
+"companyName": "IDnet",
+"productName": "Gunspin",
+"dataUrl": "GunSpin WebGL FinalVersion.data.unityweb",
+"wasmCodeUrl": "GunSpin WebGL FinalVersion.wasm.code.unityweb",
+"wasmFrameworkUrl": "slope_wasmframework.unityweb",
+"asmCodeUrl": "slope_code.unityweb",
+"asmFrameworkUrl": "GunSpin WebGL FinalVersion.wasm.framework.unityweb",
+"TOTAL_MEMORY": 268435456,
+"graphicsAPI": ["WebGL 2.0", "WebGL 1.0"],
+"webglContextAttributes": {"preserveDrawingBuffer": false},
+"splashScreenStyle": "Dark",
+"backgroundColor": "#231F20"
+}
