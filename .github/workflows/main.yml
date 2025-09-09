@@ -31,4 +31,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: bundled-html
-        path: gunspin/dist/index.html  # 👈 Adjust path to match location
+        path: gunspin/dist/index.html
