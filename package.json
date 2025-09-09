@@ -1,0 +1,11 @@
+{
+  "name": "unity-webgl-bundler",
+  "version": "1.0.0",
+  "description": "Bundles Unity WebGL into a single HTML file",
+  "main": "pack-unity-webgl.js",
+  "scripts": {
+    "bundle": "node pack-unity-webgl.js"
+  },
+  "author": "",
+  "license": "MIT"
+}
