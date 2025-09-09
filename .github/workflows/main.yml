@@ -1,4 +1,4 @@
-name: Bundle Unity WebGL into Single HTML
+name: Bundle Unity WebGL
 
 on:
   push:
@@ -8,7 +8,10 @@ on:
 jobs:
   bundle:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: gunspin
+        
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -22,10 +25,10 @@ jobs:
       run: npm install
 
     - name: Run bundling script
-      run: npm run bundle
+      run: node pack-unity-webgl.js
 
     - name: Upload bundled HTML
       uses: actions/upload-artifact@v4
       with:
         name: bundled-html
-        path: dist/index.html
+        path: gunspin/dist/index.html  # 👈 Adjust path to match location
