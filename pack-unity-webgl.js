@@ -10,10 +10,10 @@ if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 // Read original HTML
 let html = fs.readFileSync('index.html', 'utf8');
 
-// Normalize Unity's ".concat()" paths
+// Normalize ".concat()" paths
 html = html.replace(/"Build\/"\.concat\("(.+?)"\)/g, '"Build/$1"');
 
-// --- Helper to embed binary files as base64 ---
+// Helper to embed binary as base64
 function embedBinary(filename) {
   try {
     const data = fs.readFileSync(filename);
@@ -31,14 +31,22 @@ function embedBinary(filename) {
   }
 }
 
-// --- Read and store JSON config ---
+// Read JSON config
 const jsonFile = fs.readdirSync(buildDir).find(f => f.endsWith('.json'));
 let jsonConfig = {};
 if (jsonFile) {
   jsonConfig = JSON.parse(fs.readFileSync(path.join(buildDir, jsonFile), 'utf8'));
 }
 
-// --- Inline CSS ---
+// Pre‑embed all binary files from JSON config
+const embeddedFiles = {};
+for (const key of Object.keys(jsonConfig)) {
+  if (typeof jsonConfig[key] === 'string' && jsonConfig[key].endsWith('.unityweb')) {
+    embeddedFiles[jsonConfig[key]] = embedBinary(path.join(buildDir, jsonConfig[key]));
+  }
+}
+
+// Inline CSS
 html = html.replace(/<link rel="stylesheet" href="(.+?)">/g, (_, href) => {
   try {
     const css = fs.readFileSync(href, 'utf8');
@@ -49,21 +57,34 @@ html = html.replace(/<link rel="stylesheet" href="(.+?)">/g, (_, href) => {
   }
 });
 
-// --- Inline JS and patch loader ---
+// Inline JS and inject fetch override
 html = html.replace(/<script src="(.+?)"><\/script>/g, (_, src) => {
   try {
     let js = fs.readFileSync(src, 'utf8');
 
-    // Patch JSON fetch
-    js = js.replace(/fetch\((["'])(Build\/.+?\.json)\1\)/, () => {
-      return `Promise.resolve(new Response('${JSON.stringify(jsonConfig)}', { headers: { "Content-Type": "application/json" } }))`;
-    });
+    // Inject fetch override at top
+    const override = `
+      const __unityConfig = ${JSON.stringify(jsonConfig)};
+      const __unityFiles = ${JSON.stringify(embeddedFiles)};
+      const __origFetch = window.fetch;
+      window.fetch = function(url, opts) {
+        if (typeof url === 'string') {
+          const fileName = url.split('/').pop();
+          if (fileName.endsWith('.json')) {
+            return Promise.resolve(new Response(JSON.stringify(__unityConfig), { headers: { "Content-Type": "application/json" } }));
+          }
+          if (__unityFiles[fileName]) {
+            const base64 = __unityFiles[fileName].split(',')[1];
+            const mime = __unityFiles[fileName].split(',')[0].split(':')[1].split(';')[0];
+            const bin = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+            return Promise.resolve(new Response(bin, { headers: { "Content-Type": mime } }));
+          }
+        }
+        return __origFetch(url, opts);
+      };
+    `;
 
-    // Patch binary fetches (.wasm, .data, .unityweb)
-    js = js.replace(/fetch\((["'])(Build\/.+?\.(wasm|data|unityweb))\1\)/g, (_, q, file) => {
-      return `Promise.resolve(new Response(Uint8Array.from(atob("${embedBinary(file).split(',')[1]}"), c => c.charCodeAt(0))))`;
-    });
-
+    js = override + "\n" + js;
     return `<script>\n${js}\n</script>`;
   } catch {
     console.warn(`⚠️ Missing JS: ${src}`);
@@ -71,6 +92,5 @@ html = html.replace(/<script src="(.+?)"><\/script>/g, (_, src) => {
   }
 });
 
-// --- Write bundled HTML ---
 fs.writeFileSync(outputFile, html);
 console.log(`✅ Bundled HTML written to ${outputFile}`);
