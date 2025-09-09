@@ -18,15 +18,11 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Create minimal package.json
-      run: |
-        echo '{}' > package.json
-
     - name: Install dependencies
       run: npm install
 
     - name: Run bundling script
-      run: node pack-unity-webgl.js
+      run: npm run bundle
 
     - name: Upload bundled HTML
       uses: actions/upload-artifact@v4
