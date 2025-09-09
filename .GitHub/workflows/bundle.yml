@@ -1,0 +1,33 @@
+name: Bundle Unity WebGL
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run bundling script
+      run: node pack-unity-webgl.js
+
+    - name: Commit bundled HTML
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add dist/index.html
+        git commit -m "Bundled Unity WebGL HTML"
+        git push
