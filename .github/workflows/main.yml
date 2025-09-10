@@ -1,4 +1,4 @@
-name: Bundle Unity WebGL single file
+name: Bundle Unity WebGL into Single HTML
 
 on:
   push:
@@ -8,18 +8,23 @@ on:
 jobs:
   bundle:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      # 1. Pull down your repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Set up Node.js so we can run the bundler
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Bundle to single HTML
+      # 3. Run the bundler script
+      - name: Bundle Unity WebGL
         run: node pack-unity-webgl.js
 
+      # 4. Upload the single HTML file as an artifact
       - name: Upload bundled HTML
         uses: actions/upload-artifact@v4
         with:
